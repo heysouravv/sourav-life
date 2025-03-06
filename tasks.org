@@ -1,0 +1,55 @@
+#+TITLE: Project Tasks
+#+AUTHOR: Your Name
+#+OPTIONS: toc:2
+
+* Project Overview
+  This is our main development project tracking.
+
+* Tasks
+
+** TODO [#A] Set up development environment
+   SCHEDULED: <2025-03-07 Fri> DEADLINE: <2025-03-09 Sun>
+   :PROPERTIES:
+   :Effort: 2d
+   :END:
+   
+** TODO [#B] Design database schema
+   SCHEDULED: <2025-03-10 Mon> DEADLINE: <2025-03-12 Wed>
+   :PROPERTIES:
+   :Effort: 3d
+   :BLOCKER: "Set up development environment"
+   :END:
+   
+** TODO [#A] Implement user authentication
+   SCHEDULED: <2025-03-13 Thu> DEADLINE: <2025-03-18 Tue>
+   :PROPERTIES:
+   :Effort: 4d
+   :BLOCKER: "Design database schema"
+   :END:
+   
+** TODO [#C] Create API documentation
+   SCHEDULED: <2025-03-19 Wed> DEADLINE: <2025-03-22 Sat>
+   :PROPERTIES:
+   :Effort: 3d
+   :BLOCKER: "Implement user authentication"
+   :END:
+
+* Gantt Chart
+#+BEGIN_SRC plantuml :file gantt-chart.png
+@startgantt
+Project starts 2025-03-07
+
+[Set up environment] starts 2025-03-07 and lasts 2 days
+[Database schema] starts 2025-03-10 and lasts 3 days
+[User authentication] starts 2025-03-13 and lasts 4 days
+[API documentation] starts 2025-03-19 and lasts 3 days
+
+[Set up environment] -> [Database schema]
+[Database schema] -> [User authentication]
+[User authentication] -> [API documentation]
+@endgantt
+#+END_SRC
+
+* Team Links
+  - GitHub Repository: https://github.com/yourusername/project
+  - Team Calendar: https://calendar.google.com/team

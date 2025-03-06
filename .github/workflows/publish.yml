@@ -1,0 +1,56 @@
+name: Publish Org Files to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Emacs
+        run: sudo apt-get install emacs-nox --no-install-recommends -y
+      
+      - name: Install PlantUML
+        run: |
+          sudo apt-get install -y plantuml
+          mkdir -p ~/.emacs.d
+      
+      - name: Install Org-Mode dependencies
+        run: |
+          emacs --batch --eval "(require 'package)" \
+                --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)" \
+                --eval "(package-initialize)" \
+                --eval "(package-refresh-contents)" \
+                --eval "(package-install 'org-plus-contrib)" \
+                --eval "(package-install 'htmlize)"
+      
+      - name: Generate HTML
+        run: |
+          mkdir -p public
+          emacs --batch --eval "(require 'ox-publish)" \
+                --eval "(setq org-publish-project-alist '((\"tasks\" :base-directory \".\" :base-extension \"org\" :publishing-directory \"./public\" :publishing-function org-html-publish-to-html :section-numbers nil :with-toc t)))" \
+                --eval "(org-publish-all t)"
+
+      - name: Generate Gantt Charts
+        run: |
+          cd public
+          for org_file in ../*.org; do
+            grep -o '@startgantt.*@endgantt' "$org_file" -s --no-filename > gantt-code.txt
+            if [ -s gantt-code.txt ]; then
+              plantuml -tpng gantt-code.txt
+              mv gantt-code.png "$(basename "$org_file" .org)-gantt.png"
+            fi
+            rm -f gantt-code.txt
+          done
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
