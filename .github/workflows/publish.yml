@@ -2,7 +2,7 @@ name: Publish Org Files to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   
   # Allow manual triggering
   workflow_dispatch:
@@ -16,38 +16,65 @@ jobs:
       - name: Install Emacs
         run: sudo apt-get install emacs-nox --no-install-recommends -y
       
-      - name: Install PlantUML
+      - name: Install PlantUML and dependencies
         run: |
-          sudo apt-get install -y plantuml
+          sudo apt-get install -y plantuml graphviz
           mkdir -p ~/.emacs.d
       
-      - name: Install Org-Mode dependencies
+      - name: Install dependencies
         run: |
           emacs --batch --eval "(require 'package)" \
                 --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)" \
                 --eval "(package-initialize)" \
                 --eval "(package-refresh-contents)" \
-                --eval "(package-install 'org-plus-contrib)" \
+                --eval "(package-install 'org)" \
                 --eval "(package-install 'htmlize)"
       
       - name: Generate HTML
         run: |
           mkdir -p public
-          emacs --batch --eval "(require 'ox-publish)" \
+          emacs --batch --eval "(require 'ox)" \
+                --eval "(require 'ox-html)" \
                 --eval "(setq org-publish-project-alist '((\"tasks\" :base-directory \".\" :base-extension \"org\" :publishing-directory \"./public\" :publishing-function org-html-publish-to-html :section-numbers nil :with-toc t)))" \
                 --eval "(org-publish-all t)"
 
-      - name: Generate Gantt Charts
+      - name: Process PlantUML diagrams
         run: |
-          cd public
-          for org_file in ../*.org; do
-            grep -o '@startgantt.*@endgantt' "$org_file" -s --no-filename > gantt-code.txt
-            if [ -s gantt-code.txt ]; then
-              plantuml -tpng gantt-code.txt
-              mv gantt-code.png "$(basename "$org_file" .org)-gantt.png"
-            fi
-            rm -f gantt-code.txt
+          mkdir -p public/images
+          for org_file in *.org; do
+            # Extract PlantUML diagrams and save them to files
+            grep -Pzo "(?s)#\\+BEGIN_SRC plantuml.*?#\\+END_SRC" "$org_file" | while read -r -d $'\0' block; do
+              # Extract filename from the block
+              filename=$(echo "$block" | grep -oP ':file \K[^\s]+' || echo "diagram-$(date +%s).png")
+              # Extract the actual PlantUML code
+              echo "$block" | sed -n '/^@start/,/@end/p' > "temp_diagram.puml"
+              # Generate the diagram
+              plantuml -tpng "temp_diagram.puml" -o "$(pwd)/public/images"
+            done
           done
+          
+          # If there are standalone gantt diagrams, process them too
+          for org_file in *.org; do
+            base_name=$(basename "$org_file" .org)
+            grep -Pzo "(?s)@startgantt.*?@endgantt" "$org_file" > "temp_gantt.puml" || true
+            if [ -s "temp_gantt.puml" ]; then
+              plantuml -tpng "temp_gantt.puml" -o "$(pwd)/public/images"
+              mv "public/images/temp_gantt.png" "public/images/$base_name-gantt.png" || true
+            fi
+          done
+          
+          # Clean up temporary files
+          rm -f temp_diagram.puml temp_gantt.puml
+      
+      - name: Create index if not exists
+        run: |
+          if [ ! -f public/index.html ]; then
+            if [ -f public/tasks.html ]; then
+              cp public/tasks.html public/index.html
+            else
+              echo "<html><head><meta http-equiv=\"refresh\" content=\"0;url=$(ls public/*.html | head -1 | xargs basename)\"></head></html>" > public/index.html
+            fi
+          fi
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
